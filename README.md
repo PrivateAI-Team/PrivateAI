@@ -1,86 +1,47 @@
-# 🧠 PrivateAI – Cliente Chat Gemini 2.5 Flash para macOS
+# PrivateAI for macOS
 
-**PrivateAI** é um cliente de chat nativo para macOS que integra o modelo **Gemini 2.5 Flash**. Ele oferece uma experiência completa de conversa com IA, incluindo múltiplas sessões, upload de PDF e áudio, histórico persistente e muito mais — tudo diretamente do seu desktop.
-
-> ⚠️ **Atenção:** A chave da API está hard-coded **apenas para fins de testes locais**. Para uso em produção, recomenda-se utilizar `Secrets` ou variáveis de ambiente.
+A native, simple, and private chat client for Google's Gemini models, running directly on your Mac. Chat with the AI, organize your ideas, analyze documents, and transcribe audio, all within a clean, privacy-focused interface.
 
 ---
 
-## 🚀 Recursos
+## Quick Installation
 
-- ✅ Interface nativa em SwiftUI
-- ✅ Múltiplos chats simultâneos com histórico
-- ✅ Envio e transcrição de **áudio**
-- ✅ Leitura e análise de **PDFs**
-- ✅ Integração com **Gemini 2.5 Flash**
-- ✅ Armazenamento local do histórico de conversas
-- ✅ Suporte completo a macOS Sonoma (14+) com Xcode 16+
+To install PrivateAI, follow these three simple steps:
 
----
+1.  **Download:** Download the `PrivateAIApp.zip` file from the releases page.
+2.  **Unzip:** Double-click the `.zip` file to extract it.
+3.  **Move:** Drag the `PrivateAI.app` application icon into your **Applications** folder.
 
-## 📦 Instalação
+That's it! You can now open PrivateAI from your Applications folder or Launchpad.
 
-1. **Requisitos:**
-   - macOS 14 ou superior
-   - Xcode 16+
-   - Swift 5.10
+## Getting Started: Setting Up Your API Key
 
-2. **Clone o repositório:**
+To ensure privacy and full control over your interactions, the application works best with your own Google AI Studio API key.
 
-   ```bash
-   git clone https://github.com/seu-usuario/privateai.git
-   cd privateai
-   ```
+1.  **Open the App:** Launch PrivateAI.
+2.  **Access Settings:** In the top menu bar, click `PrivateAI > Settings` (or use the shortcut `Cmd+,`).
+3.  **Paste Your Key:** In the "Authentication" section, paste your Google API key into the field.
+    * *If you leave the field blank, the application will use a default API key, but using a personal key is highly recommended*. The app will alert you if a valid key is not found.
+4.  **Start Chatting:** Close the settings window and click the `+ New Chat` button in the sidebar to send your first message.
 
-3. **Abra o projeto no Xcode:**
+## Features
 
-   ```bash
-   open PrivateAI.xcodeproj
-   ```
+* **Privacy First:** All your chat history is saved locally on your computer in the `Application Support` folder. Your API keys are stored locally, and conversations are sent directly to the Google API.
+* **Multiple Chats:** Organize your conversations into separate sessions, which are automatically saved and grouped by date.
+* **History Search:** Easily find old conversations using the built-in search bar.
+* **File Uploads:**
+    * **PDFs:** Upload a PDF document, and the app will extract the text so you can analyze it with the AI.
+    * **Audio:** Upload an audio file (e.g., `.mp3`, `.wav`), and PrivateAI will transcribe it to text using Apple's technology.
+* **Gemini Models Support:** Choose between the `gemini-1.5-flash-latest` and `gemini-1.5-pro-latest` models directly in the app's settings.
+* **Native macOS Interface:** Built with SwiftUI to be fast, lightweight, and integrated with the system, including support for light, dark, and system themes.
+* **Simple Management:** Delete individual chats or your entire history with a single click.
 
-4. **No arquivo `Info.plist`, adicione as permissões:**
+## Future Features
 
-   ```xml
-   <key>NSDocumentsFolderUsageDescription</key>
-   <string>Precisamos acessar PDFs escolhidos por você.</string>
-   <key>NSSpeechRecognitionUsageDescription</key>
-   <string>Precisamos transcrever o áudio que você selecionar.</string>
-   ```
+We are working to expand PrivateAI's capabilities. In a future update, we plan to introduce the option to run a **fully local AI model**, directly on your Mac, for even greater privacy and control.
 
-5. **Execute o projeto (Cmd + R)**
+This new functionality will exist alongside the current integrations, allowing you to choose between the local AI, Google's Gemini, and other AI services that will be added.
 
----
+## System Requirements
 
-## 🧪 Uso
-
-- Abra o app e comece uma nova conversa.
-- Use os botões para:
-  - 📄 Enviar arquivos PDF
-  - 🎙️ Enviar áudios para transcrição
-- Visualize e gerencie sessões anteriores no histórico.
-
----
-
-## 🔒 Roadmap & Futuro
-
-Nas próximas versões:
-
-- **Execução 100% local com modelos embarcados** (sem dependência de APIs externas)
-- **Suporte opcional à execução na nuvem** via Gemini ou outros provedores
-- Melhorias na privacidade e uso offline
-- Suporte a outros formatos de documentos e transcrição
-
----
-
-## ⚠️ Aviso de Segurança
-
-A chave da API está embutida **apenas para testes locais**. Para distribuição ou uso real:
-
-- Substitua por um mecanismo seguro de gerenciamento de credenciais.
-- Utilize variáveis de ambiente ou o sistema de `Secrets` do Xcode.
-
----
-
-## 📄 Licença
-
-Este projeto é distribuído sob a licença MIT.
+* **Operating System:** macOS 14+.
