@@ -45,3 +45,6 @@ This new functionality will exist alongside the current integrations, allowing y
 ## ✅ System Requirements
 
 * **Operating System:** macOS 14+.
+
+
+### Non-profit project
