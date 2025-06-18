@@ -1,6 +1,7 @@
+
 import Foundation
 
-struct ChatSession: Identifiable, Codable {
+struct ChatSession: Identifiable, Codable, Hashable {
     let id:        UUID
     var title:     String
     let createdAt: Date

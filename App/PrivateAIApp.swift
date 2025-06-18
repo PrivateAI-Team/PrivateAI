@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 @main
@@ -6,10 +7,15 @@ struct PrivateAIApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ChatContainerView()
+            ModernChatContainerView()
                 .environmentObject(viewModel)
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 720, height: 860)
+        .defaultSize(width: 980, height: 720)
+
+        Settings {
+            SettingsView()
+                .environmentObject(viewModel)
+        }
     }
 }

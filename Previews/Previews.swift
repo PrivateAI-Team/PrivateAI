@@ -1,6 +1,7 @@
+
 import SwiftUI
 
 #Preview("PrivateAI") {
-    ChatContainerView()
+    ModernChatContainerView()
         .environmentObject(ChatViewModel())
 }

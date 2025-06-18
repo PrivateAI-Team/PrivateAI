@@ -1,3 +1,4 @@
+
 import Foundation
 
 struct SessionStore {
@@ -5,14 +6,15 @@ struct SessionStore {
     private let fileURL: URL
 
     private init() {
-        let fm = FileManager.default
-        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let folder = base.appendingPathComponent("PrivateAI", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        fileURL = folder.appendingPathComponent("sessions.json")
+        let fm    = FileManager.default
+        let base  = fm.urls(for: .applicationSupportDirectory,
+                            in: .userDomainMask).first!
+        let dir   = base.appendingPathComponent("PrivateAI", isDirectory: true)
+        try? fm.createDirectory(at: dir,
+                                withIntermediateDirectories: true)
+        fileURL = dir.appendingPathComponent("sessions.json")
     }
 
-    // MARK: Public
     func load() -> [ChatSession] {
         guard let data = try? Data(contentsOf: fileURL) else { return [] }
         return (try? JSONDecoder().decode([ChatSession].self, from: data)) ?? []
