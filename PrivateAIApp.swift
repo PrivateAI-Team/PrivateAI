@@ -1,20 +1,3 @@
-//
-//  PrivateAI – Gemini 1.5 Flash macOS Chat Client
-//  Versão completa: múltiplos chats, upload de PDF, upload de áudio, histórico com excluir
-//  ----------------------------------------------------------------------------------------
-//
-//  Requisitos:
-//  - macOS 14+
-//  - Xcode 16+
-//  - Swift 5.10
-//
-//  Adicione ao Info.plist:
-//  - NSDocumentsFolderUsageDescription = "Precisamos acessar PDFs escolhidos por você."
-//  - NSSpeechRecognitionUsageDescription = "Precisamos transcrever o áudio que você selecionar."
-//  - CFBundleLocalizations = ["en", "es", "pt_BR"] // <-- Adicione para suportar os idiomas
-//  - CFBundleDevelopmentRegion = "en" // <-- Defina a região de desenvolvimento
-//
-
 import SwiftUI
 import Foundation
 import Combine
@@ -22,8 +5,6 @@ import AVFoundation
 import Speech
 import PDFKit
 import UniformTypeIdentifiers
-
-// MARK: - App Entry Point
 
 @main
 struct PrivateAIApp: App {
@@ -34,7 +15,7 @@ struct PrivateAIApp: App {
         WindowGroup {
             ModernChatContainerView()
                 .environmentObject(viewModel)
-                .environment(\.locale, language.locale ?? .current) // Aplica o idioma selecionado dinamicamente
+                .environment(\.locale, language.locale ?? .current)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 980, height: 720)
@@ -42,12 +23,10 @@ struct PrivateAIApp: App {
         Settings {
             SettingsView()
                 .environmentObject(viewModel)
-                .environment(\.locale, language.locale ?? .current) // Garante que os ajustes também sejam localizados
+                .environment(\.locale, language.locale ?? .current)
         }
     }
 }
-
-// MARK: - Internationalization (i18n) Enums
 
 enum Language: String, CaseIterable, Identifiable {
     case system, english, spanish, portuguese
@@ -72,8 +51,6 @@ enum Language: String, CaseIterable, Identifiable {
     }
 }
 
-
-// MARK: - Appearance Enum
 enum Appearance: String, CaseIterable, Identifiable {
     case light, dark, system
     var id: Self { self }
@@ -95,18 +72,14 @@ enum Appearance: String, CaseIterable, Identifiable {
     }
 }
 
-
-// MARK: - Settings View
-
 struct SettingsView: View {
     @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash" // ALTERADO: Padrão atualizado
+    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
     @AppStorage("appearance") private var appearance: Appearance = .system
     @AppStorage("language") private var language: Language = .system
     
     @EnvironmentObject var viewModel: ChatViewModel
     
-    // ALTERADO: IDs dos modelos atualizados para 2.5
     private let models: [(id: String, displayName: String)] = [
         ("gemini-2.5-flash", "Gemini 2.5 Flash"),
         ("gemini-2.5-pro", "Gemini 2.5 Pro")
@@ -170,8 +143,6 @@ struct SettingsView: View {
     }
 }
 
-
-// MARK: - UI Theme
 struct Theme {
     static func userBubbleGradient(for scheme: ColorScheme) -> LinearGradient {
         let colors: [Color] = scheme == .dark ? [.blue, .indigo] : [.accentColor]
@@ -190,9 +161,6 @@ struct Theme {
     static let borderColor = Color.gray.opacity(0.2)
     static let welcomeGradient = LinearGradient(colors: [Color.black.opacity(0.1), Color.clear], startPoint: .top, endPoint: .bottom)
 }
-
-
-// MARK: - Main Container (Modern Layout)
 
 struct ModernChatContainerView: View {
     @EnvironmentObject var viewModel: ChatViewModel
@@ -217,7 +185,6 @@ struct ModernChatContainerView: View {
     }
 }
 
-// MARK: - Sessions Sidebar
 struct SessionsSidebar: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.locale) private var locale
@@ -277,7 +244,7 @@ struct SessionsSidebar: View {
         if calendar.isDateInYesterday(date) { return String(localized: "date.yesterday") }
         
         let formatter = DateFormatter()
-        formatter.locale = locale // Usa o locale do ambiente
+        formatter.locale = locale
         formatter.setLocalizedDateFormatFromTemplate("EEEE, MMMM d")
         return formatter.string(from: date).capitalized
     }
@@ -288,8 +255,6 @@ struct SessionsSidebar: View {
     }
 }
 
-
-// MARK: - Chat Detail View
 struct ChatDetailView: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.colorScheme) private var colorScheme
@@ -355,7 +320,6 @@ struct ChatDetailView: View {
     private func selectAudio() { let panel = NSOpenPanel(); panel.allowedContentTypes = [.audio]; panel.begin { resp in if resp == .OK, let url = panel.url { Task { await viewModel.handleAudio(url: url) } } } }
 }
 
-// MARK: - Welcome View
 struct WelcomeView: View {
     @EnvironmentObject var viewModel: ChatViewModel
     
@@ -381,7 +345,6 @@ struct WelcomeView: View {
     }
 }
 
-// MARK: - Typing Indicator View
 struct TypingIndicatorView: View {
     @State private var scales: [CGFloat] = [0.5, 0.5, 0.5]
     @Environment(\.colorScheme) private var colorScheme
@@ -406,7 +369,6 @@ struct TypingIndicatorView: View {
     }
 }
 
-// MARK: - MessageBubble
 struct MessageBubble: View {
     let message: ChatMessage
     private var isUser: Bool { message.role == .user }
@@ -433,7 +395,6 @@ struct MessageBubble: View {
     @ViewBuilder private var copyButton: some View { Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(message.text, forType: .string) } label: { Label("chat.contextmenu.copy", systemImage: "doc.on.doc") } }
 }
 
-// MARK: - Models
 struct ChatMessage: Identifiable, Hashable, Codable {
     enum Role: String, Codable { case user, assistant }
     let id: UUID
@@ -448,7 +409,6 @@ struct ChatSession: Identifiable, Codable, Hashable {
     var messages: [ChatMessage]
 }
 
-// MARK: - ViewModel
 @MainActor
 final class ChatViewModel: ObservableObject {
     @Published var sessions: [ChatSession] = [] { didSet { saveSessions() } }
@@ -456,7 +416,7 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var isTyping = false
     
     @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash" // ALTERADO: Padrão atualizado
+    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
 
     private let gemini = GeminiService()
     private let recognizer = SpeechService()
@@ -551,10 +511,8 @@ final class ChatViewModel: ObservableObject {
     private func saveSessions() { SessionStore.shared.save(sessions) }
 }
 
-// MARK: - Speech Service
 struct SpeechService {
     func transcribeAudio(at url: URL) async throws -> String {
-        // Usa o locale atual do app para o reconhecimento de fala
         let recognizer = SFSpeechRecognizer(locale: Locale.current)
         guard let recognizer = recognizer, recognizer.isAvailable else { throw NSError(domain: "Speech", code: -1, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer not available for the current locale."]) }
         let request = SFSpeechURLRecognitionRequest(url: url)
@@ -567,7 +525,6 @@ struct SpeechService {
     }
 }
 
-// MARK: - PDF Service
 struct PDFService {
     func extractText(from url: URL) async throws -> String {
         guard let doc = PDFDocument(url: url) else { throw NSError(domain: "PDF", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not open PDF document."]) }
@@ -579,7 +536,6 @@ struct PDFService {
     }
 }
 
-// MARK: - Session Store
 struct SessionStore {
     static let shared = SessionStore()
     private let fileURL: URL
@@ -605,7 +561,6 @@ struct SessionStore {
     }
 }
 
-// MARK: - Gemini Service
 actor GeminiService {
     private let session = URLSession(configuration: .ephemeral)
 
@@ -657,7 +612,6 @@ actor GeminiService {
     }
 }
 
-// MARK: - URL Convenience
 extension URL {
     mutating func append(queryItems items: [URLQueryItem]) {
         guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else { return }
@@ -666,17 +620,16 @@ extension URL {
     }
 }
 
-// MARK: - Preview
 #Preview("PrivateAI") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
-        .environment(\.locale, .init(identifier: "pt_BR")) // Preview em Português
+        .environment(\.locale, .init(identifier: "pt_BR"))
 }
 
 #Preview("PrivateAI (English)") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
-        .environment(\.locale, .init(identifier: "en")) // Preview em Inglês
+        .environment(\.locale, .init(identifier: "en"))
 }
 
 #Preview("Settings (English)") {
