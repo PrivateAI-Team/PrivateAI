@@ -6,15 +6,19 @@ import Speech
 import PDFKit
 import UniformTypeIdentifiers
 
+// MARK: - App Entry Point
+
 @main
 struct PrivateAIApp: App {
     @StateObject private var viewModel = ChatViewModel()
+    @StateObject private var ttsService = TextToSpeechService()
     @AppStorage("language") private var language: Language = .system
 
     var body: some Scene {
         WindowGroup {
             ModernChatContainerView()
                 .environmentObject(viewModel)
+                .environmentObject(ttsService)
                 .environment(\.locale, language.locale ?? .current)
         }
         .windowStyle(.automatic)
@@ -27,6 +31,8 @@ struct PrivateAIApp: App {
         }
     }
 }
+
+// MARK: - Internationalization (i18n) Enums
 
 enum Language: String, CaseIterable, Identifiable {
     case system, english, spanish, portuguese
@@ -51,6 +57,8 @@ enum Language: String, CaseIterable, Identifiable {
     }
 }
 
+
+// MARK: - Appearance Enum
 enum Appearance: String, CaseIterable, Identifiable {
     case light, dark, system
     var id: Self { self }
@@ -72,17 +80,20 @@ enum Appearance: String, CaseIterable, Identifiable {
     }
 }
 
+
+// MARK: - Settings View
+
 struct SettingsView: View {
     @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
+    @AppStorage("modelID") private var modelID: String = "gemini-1.5-flash"
     @AppStorage("appearance") private var appearance: Appearance = .system
     @AppStorage("language") private var language: Language = .system
     
     @EnvironmentObject var viewModel: ChatViewModel
     
     private let models: [(id: String, displayName: String)] = [
-        ("gemini-2.5-flash", "Gemini 2.5 Flash"),
-        ("gemini-2.5-pro", "Gemini 2.5 Pro")
+        ("gemini-1.5-flash", "Gemini 1.5 Flash"),
+        ("gemini-1.5-pro", "Gemini 1.5 Pro")
     ]
     
     var body: some View {
@@ -143,6 +154,8 @@ struct SettingsView: View {
     }
 }
 
+
+// MARK: - UI Theme
 struct Theme {
     static func userBubbleGradient(for scheme: ColorScheme) -> LinearGradient {
         let colors: [Color] = scheme == .dark ? [.blue, .indigo] : [.accentColor]
@@ -161,6 +174,9 @@ struct Theme {
     static let borderColor = Color.gray.opacity(0.2)
     static let welcomeGradient = LinearGradient(colors: [Color.black.opacity(0.1), Color.clear], startPoint: .top, endPoint: .bottom)
 }
+
+
+// MARK: - Main Container (Modern Layout)
 
 struct ModernChatContainerView: View {
     @EnvironmentObject var viewModel: ChatViewModel
@@ -185,6 +201,7 @@ struct ModernChatContainerView: View {
     }
 }
 
+// MARK: - Sessions Sidebar
 struct SessionsSidebar: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.locale) private var locale
@@ -255,6 +272,8 @@ struct SessionsSidebar: View {
     }
 }
 
+
+// MARK: - Chat Detail View
 struct ChatDetailView: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.colorScheme) private var colorScheme
@@ -317,9 +336,10 @@ struct ChatDetailView: View {
     
     private func send() { let text = input.trimmingCharacters(in: .whitespacesAndNewlines); guard !text.isEmpty else { return }; input = ""; Task { await viewModel.send(message: text) } }
     private func selectPDF() { let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType.pdf]; panel.begin { resp in if resp == .OK, let url = panel.url { Task { await viewModel.handlePDF(url: url) } } } }
-    private func selectAudio() { let panel = NSOpenPanel(); panel.allowedContentTypes = [.audio]; panel.begin { resp in if resp == .OK, let url = panel.url { Task { await viewModel.handleAudio(url: url) } } } }
+    private func selectAudio() { let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType.audio]; panel.begin { resp in if resp == .OK, let url = panel.url { Task { await viewModel.handleAudio(url: url) } } } }
 }
 
+// MARK: - Welcome View
 struct WelcomeView: View {
     @EnvironmentObject var viewModel: ChatViewModel
     
@@ -345,6 +365,7 @@ struct WelcomeView: View {
     }
 }
 
+// MARK: - Typing Indicator View
 struct TypingIndicatorView: View {
     @State private var scales: [CGFloat] = [0.5, 0.5, 0.5]
     @Environment(\.colorScheme) private var colorScheme
@@ -369,32 +390,85 @@ struct TypingIndicatorView: View {
     }
 }
 
+// MARK: - MessageBubble
 struct MessageBubble: View {
     let message: ChatMessage
     private var isUser: Bool { message.role == .user }
+    
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var ttsService: TextToSpeechService
+    
+    @State private var isHoveringOnPlayButton = false
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {
-            if !isUser { Image(systemName: "sparkles.circle.fill").font(.title).foregroundStyle(Theme.iconColor.opacity(0.8)) }
-            Text(message.text)
-                .padding(.horizontal, 16).padding(.vertical, 12)
-                .foregroundStyle(isUser ? .white : .primary)
-                .background(isUser ? AnyShapeStyle(Theme.userBubbleGradient(for: colorScheme)) : AnyShapeStyle(Theme.assistantBubbleColor(for: colorScheme)))
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.borderColor, lineWidth: 1))
-                .frame(maxWidth: 450, alignment: isUser ? .trailing : .leading)
-                .contextMenu { copyButton }
-            if isUser { Image(systemName: "person.crop.circle.fill").font(.title).foregroundStyle(Theme.iconColor.opacity(0.8)) }
+            if !isUser {
+                Image(systemName: "sparkles.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(Theme.iconColor.opacity(0.8))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Button(action: {
+                        ttsService.speak(text: message.text, messageID: message.id)
+                    }) {
+                        Image(systemName: ttsService.speakingMessageID == message.id ? "stop.circle.fill" : "speaker.wave.2.circle.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(isHoveringOnPlayButton ? .accentColor : Theme.iconColor)
+                            .padding(10)
+                            .background(
+                                Circle()
+                                    .fill(isHoveringOnPlayButton ? Color.gray.opacity(0.25) : Color.clear)
+                            )
+                            .contentShape(Circle())
+                            .scaleEffect(isHoveringOnPlayButton ? 1.15 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHoveringOnPlayButton)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { hovering in
+                        isHoveringOnPlayButton = hovering
+                    }
+                    .help(ttsService.speakingMessageID == message.id ? "Parar leitura" : "Ouvir resposta")
+                    .zIndex(1)
+
+                    textBubble
+                }
+            } else {
+                Spacer()
+                textBubble
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(Theme.iconColor.opacity(0.8))
+            }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
     
-    @ViewBuilder private var copyButton: some View { Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(message.text, forType: .string) } label: { Label("chat.contextmenu.copy", systemImage: "doc.on.doc") } }
+    private var textBubble: some View {
+        Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .foregroundStyle(isUser ? .white : .primary)
+            .background(isUser ? AnyShapeStyle(Theme.userBubbleGradient(for: colorScheme)) : AnyShapeStyle(Theme.assistantBubbleColor(for: colorScheme)))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.borderColor, lineWidth: 1))
+            .frame(maxWidth: 450, alignment: isUser ? .trailing : .leading)
+            .contextMenu { copyButton }
+    }
+    
+    @ViewBuilder private var copyButton: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(message.text, forType: .string)
+        } label: {
+            Label("chat.contextmenu.copy", systemImage: "doc.on.doc")
+        }
+    }
 }
 
+
+// MARK: - Models
 struct ChatMessage: Identifiable, Hashable, Codable {
     enum Role: String, Codable { case user, assistant }
     let id: UUID
@@ -409,6 +483,7 @@ struct ChatSession: Identifiable, Codable, Hashable {
     var messages: [ChatMessage]
 }
 
+// MARK: - ViewModel
 @MainActor
 final class ChatViewModel: ObservableObject {
     @Published var sessions: [ChatSession] = [] { didSet { saveSessions() } }
@@ -416,7 +491,7 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var isTyping = false
     
     @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
+    @AppStorage("modelID") private var modelID: String = "gemini-1.5-flash"
 
     private let gemini = GeminiService()
     private let recognizer = SpeechService()
@@ -511,6 +586,57 @@ final class ChatViewModel: ObservableObject {
     private func saveSessions() { SessionStore.shared.save(sessions) }
 }
 
+// MARK: - Text to Speech Service
+final class TextToSpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+    @Published private(set) var speakingMessageID: UUID?
+
+    private let synthesizer = AVSpeechSynthesizer()
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func speak(text: String, messageID: UUID) {
+        if synthesizer.isSpeaking && messageID == self.speakingMessageID {
+            stop()
+            return
+        }
+
+        if synthesizer.isSpeaking {
+            stop()
+        }
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.pitchMultiplier = 1.0
+
+        self.speakingMessageID = messageID
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
+        speakingMessageID = nil
+    }
+
+    // MARK: AVSpeechSynthesizerDelegate
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.speakingMessageID = nil
+        }
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.speakingMessageID = nil
+        }
+    }
+}
+
+
+// MARK: - Speech Service
 struct SpeechService {
     func transcribeAudio(at url: URL) async throws -> String {
         let recognizer = SFSpeechRecognizer(locale: Locale.current)
@@ -525,6 +651,7 @@ struct SpeechService {
     }
 }
 
+// MARK: - PDF Service
 struct PDFService {
     func extractText(from url: URL) async throws -> String {
         guard let doc = PDFDocument(url: url) else { throw NSError(domain: "PDF", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not open PDF document."]) }
@@ -536,6 +663,7 @@ struct PDFService {
     }
 }
 
+// MARK: - Session Store
 struct SessionStore {
     static let shared = SessionStore()
     private let fileURL: URL
@@ -561,19 +689,41 @@ struct SessionStore {
     }
 }
 
+// MARK: - Gemini Service
 actor GeminiService {
     private let session = URLSession(configuration: .ephemeral)
 
     struct Part: Codable { let text: String }
     struct Content: Codable { let role: String; let parts: [Part] }
     struct GenerationConfig: Codable { let temperature: Double; let topP: Double; let maxOutputTokens: Int }
-    struct RequestBody: Codable { let contents: [Content]; let generationConfig: GenerationConfig }
     struct Candidate: Codable { let content: Content }
     struct ResponseBody: Codable { let candidates: [Candidate] }
 
+    struct SystemInstruction: Codable { let parts: [Part] }
+
+    struct RequestBody: Codable {
+        let contents: [Content]
+        let generationConfig: GenerationConfig
+        let systemInstruction: SystemInstruction?
+
+        enum CodingKeys: String, CodingKey {
+            case contents, generationConfig
+            case systemInstruction = "system_instruction"
+        }
+    }
+
     func sendPrompt(history: [ChatMessage], apiKey: String, modelID: String) async throws -> String {
         let contents = history.map { Content(role: $0.role == .user ? "user" : "model", parts: [Part(text: $0.text)]) }
-        let body = RequestBody(contents: contents, generationConfig: GenerationConfig(temperature: 0.7, topP: 0.95, maxOutputTokens: 4096))
+
+        let instructionText = "Formate suas respostas usando Markdown. Use negrito, itálico e listas quando apropriado. Não use títulos ou cabeçalhos (iniciados com '#')."
+        let systemInstruction = SystemInstruction(parts: [Part(text: instructionText)])
+
+        let body = RequestBody(
+            contents: contents,
+            generationConfig: GenerationConfig(temperature: 0.7, topP: 0.95, maxOutputTokens: 4096),
+            systemInstruction: systemInstruction
+        )
+
         let data = try await performRequest(with: body, apiKey: apiKey, modelID: modelID)
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard let part = decoded.candidates.first?.content.parts.first else { throw URLError(.cannotParseResponse) }
@@ -587,7 +737,7 @@ actor GeminiService {
         let prompt = String(format: promptFormat, conversationText)
         
         let promptContent = Content(role: "user", parts: [Part(text: prompt)])
-        let body = RequestBody(contents: [promptContent], generationConfig: GenerationConfig(temperature: 0.2, topP: 0.95, maxOutputTokens: 20))
+        let body = RequestBody(contents: [promptContent], generationConfig: GenerationConfig(temperature: 0.2, topP: 0.95, maxOutputTokens: 20), systemInstruction: nil)
         let data = try await performRequest(with: body, apiKey: apiKey, modelID: modelID)
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard var summary = decoded.candidates.first?.content.parts.first?.text else { throw URLError(.cannotParseResponse) }
@@ -612,6 +762,7 @@ actor GeminiService {
     }
 }
 
+// MARK: - URL Convenience
 extension URL {
     mutating func append(queryItems items: [URLQueryItem]) {
         guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else { return }
@@ -620,15 +771,18 @@ extension URL {
     }
 }
 
+// MARK: - Preview
 #Preview("PrivateAI") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
+        .environmentObject(TextToSpeechService())
         .environment(\.locale, .init(identifier: "pt_BR"))
 }
 
 #Preview("PrivateAI (English)") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
+        .environmentObject(TextToSpeechService())
         .environment(\.locale, .init(identifier: "en"))
 }
 
