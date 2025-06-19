@@ -1,4 +1,4 @@
-![PrivateAI Interface](https://raw.githubusercontent.com/xjosematheus29/PrivateAI/refs/heads/main/img.png)
+![PrivateAI Interface](https://raw.githubusercontent.com/xjosematheus29/PrivateAI/refs/heads/master/img.png)
 
 # 🧠 PrivateAI for macOS
 
