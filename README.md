@@ -1,3 +1,5 @@
+![PrivateAI Interface](https://raw.githubusercontent.com/xjosematheus29/PrivateAI/refs/heads/main/img.png)
+
 # 🧠 PrivateAI for macOS
 
 A native, simple, and private chat client for Google's Gemini models, running directly on your Mac. Chat with the AI, organize your ideas, analyze documents, and transcribe audio, all within a clean, privacy-focused interface.
