@@ -52,4 +52,5 @@ This new functionality will exist alongside the current integrations, allowing y
 
 ### Non-profit project
 
-### [LICENSE](LICENSE)
+## LICENSE
+[Click here](LICENSE)
