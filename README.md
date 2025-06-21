@@ -9,7 +9,7 @@ A native, simple, and private chat client for Google's Gemini models, running di
 
 To install PrivateAI, follow these three simple steps:
 
-1.  **Download:** Download the `PrivateAIApp.zip` file from the releases page.
+1.  **Download:** Download the `PrivateAIApp.zip` file from the releases page or click [here to download](https://github.com/PrivateAI-Team/PrivateAI/releases/download/privateai1-0-2/PrivateAIApp.zip).
 2.  **Unzip:** Double-click the `.zip` file to extract it.
 3.  **Move:** Drag the `PrivateAI.app` application icon into your **Applications** folder.
 
