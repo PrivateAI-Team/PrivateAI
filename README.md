@@ -53,5 +53,5 @@ This new functionality will exist alongside the current integrations, allowing y
 ## LICENSE
 [Click here](LICENSE)
 
-## ⚠️ Important ⚠️
+## ⚠️ Important info
 The software does not have Apple's validation because to have this validation and consequently have Apple's digital signature, it is necessary to pay $99. For now, I will not be able to add the proper signature. Therefore, when the application is opened for the first time, it may say that the application is a threat and not let the user open it. To work around this problem, simply go to Settings > Privacy & Security > scroll to the end > Below the application name (PrivateAI) followed by the text saying the application was blocked, click the "Open Anyway" button.
