@@ -1,3 +1,4 @@
+// New version - PrivateAI 1.0.3
 import SwiftUI
 import Foundation
 import Combine
