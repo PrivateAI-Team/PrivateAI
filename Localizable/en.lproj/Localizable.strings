@@ -1,0 +1,64 @@
+"settings.title" = "Settings";
+"settings.tab.general" = "General";
+"settings.tab.privacy" = "Privacy & Data";
+"settings.section.authentication" = "Authentication";
+"settings.apikey.placeholder" = "Paste your key here for customization (optional)";
+"settings.apikey.caption" = "If this field is left blank, the app will use a default API key.";
+"settings.section.aimodel" = "AI Model";
+"settings.model.picker" = "Gemini Model";
+"settings.section.appearance" = "Appearance";
+"settings.appearance.picker" = "App Theme";
+"settings.section.language" = "Language";
+"settings.language.picker" = "App Language";
+"settings.language.caption" = "The UI will update instantly.";
+"settings.section.data" = "Data Management";
+"settings.data.delete_history" = "Delete All Chat History";
+"settings.data.delete_caption" = "This will permanently delete all your conversations from this device.";
+
+"appearance.light" = "Light";
+"appearance.dark" = "Dark";
+"appearance.system" = "System";
+"language.system" = "System";
+
+"sidebar.search.prompt" = "Search Chats";
+"sidebar.button.delete_all" = "Delete All";
+"sidebar.button.delete_all.tooltip" = "Delete all history";
+"sidebar.button.new_chat" = "New Chat";
+"sidebar.button.new_chat.tooltip" = "Create a new chat";
+"date.today" = "Today";
+"date.yesterday" = "Yesterday";
+"chat.default.title" = "Chat";
+"chat.new.title" = "New Chat";
+"chat.button.delete" = "Delete Chat";
+"chat.tooltip.send_pdf" = "Send PDF";
+"chat.tooltip.send_audio" = "Send Audio";
+"chat.input.placeholder" = "Type your message…";
+"welcome.title" = "Welcome to PrivateAI";
+"welcome.invalid_api.title" = "Invalid or Missing API Key";
+"welcome.invalid_api.description" = "Please add a valid API key in the app settings to get started.";
+"welcome.button.open_settings" = "Open Settings";
+"welcome.prompt" = "Select a chat from the history or create a new one to begin.";
+"chat.contextmenu.copy" = "Copy Text";
+
+"menubar.title" = "Quick Ask PrivateAI";
+"menubar.button.ask" = "Ask Gemini";
+"menubar.button.processing" = "Processing...";
+"menubar.status.waiting" = "Awaiting response...";
+"menubar.response_header" = "Assistant's Response";
+"menubar.button.open_main" = "Open Main Window";
+
+"error.invalid_api" = "Error: Invalid or unconfigured API key. Please check the Settings.";
+"error.generic" = "Error: %@";
+"error.summary_failed" = "Failed to generate summary: %@";
+"error.server_response" = "Server returned an error. Details: %@";
+"chat.audio_sent" = "[Audio sent: %@]";
+"chat.transcription_header" = "Transcription:";
+"chat.pdf_sent" = "[PDF sent: %@]";
+"chat.pdf_snippet_header" = "PDF Content (snippet):";
+"gemini.title_prompt" = "Generate a short, concise title in English (max 5 words) for the following conversation. The title should capture the main topic. Do not use quotes.\n\nCONVERSATION:\n%@\n\nCONCISE TITLE:";
+
+"settings.section.privacy" = "Data Privacy";
+"settings.privacy.caption" = "Google does not use data from the Gemini API to train its models. Your conversations are private.";
+"settings.privacy.link" = "Learn more at Google AI's FAQ";
+
+"help.github_repository" = "PrivateAI Repository on GitHub";
