@@ -1,4 +1,4 @@
-// New version - PrivateAI 1.0.3
+// New version - PrivateAI v1.0.3
 import SwiftUI
 import Foundation
 import Combine
@@ -7,13 +7,12 @@ import Speech
 import PDFKit
 import UniformTypeIdentifiers
 
-// MARK: - App Entry Point
-
 @main
 struct PrivateAIApp: App {
     @StateObject private var viewModel = ChatViewModel()
     @StateObject private var ttsService = TextToSpeechService()
     @AppStorage("language") private var language: Language = .system
+    @AppStorage("appearance") private var appearance: Appearance = .system
 
     var body: some Scene {
         WindowGroup {
@@ -21,9 +20,17 @@ struct PrivateAIApp: App {
                 .environmentObject(viewModel)
                 .environmentObject(ttsService)
                 .environment(\.locale, language.locale ?? .current)
+                .preferredColorScheme(appearance.colorScheme)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 980, height: 720)
+        .commands {
+            CommandGroup(replacing: .help) {
+                if let url = URL(string: "https://github.com/PrivateAI-Team/PrivateAI/tree/dev") {
+                    Link("help.github_repository", destination: url)
+                }
+            }
+        }
         
         Settings {
             SettingsView()
@@ -32,8 +39,6 @@ struct PrivateAIApp: App {
         }
     }
 }
-
-// MARK: - Internationalization (i18n) Enums
 
 enum Language: String, CaseIterable, Identifiable {
     case system, english, spanish, portuguese
@@ -58,8 +63,6 @@ enum Language: String, CaseIterable, Identifiable {
     }
 }
 
-
-// MARK: - Appearance Enum
 enum Appearance: String, CaseIterable, Identifiable {
     case light, dark, system
     var id: Self { self }
@@ -81,82 +84,6 @@ enum Appearance: String, CaseIterable, Identifiable {
     }
 }
 
-
-// MARK: - Settings View
-
-struct SettingsView: View {
-    @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-1.5-flash"
-    @AppStorage("appearance") private var appearance: Appearance = .system
-    @AppStorage("language") private var language: Language = .system
-    
-    @EnvironmentObject var viewModel: ChatViewModel
-    
-    private let models: [(id: String, displayName: String)] = [
-        ("gemini-1.5-flash", "Gemini 1.5 Flash"),
-        ("gemini-1.5-pro", "Gemini 1.5 Pro")
-    ]
-    
-    var body: some View {
-        Form {
-            Section(header: Text("settings.section.authentication")) {
-                SecureField("", text: $customApiKey, prompt: Text("settings.apikey.placeholder"))
-                    .textFieldStyle(.roundedBorder)
-                Text("settings.apikey.caption")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Section(header: Text("settings.section.aimodel")) {
-                Picker(selection: $modelID) {
-                    ForEach(models, id: \.id) { model in
-                        Text(model.displayName).tag(model.id)
-                    }
-                } label: {
-                    Text("Modelos")
-                }
-                .pickerStyle(.menu)
-            }
-            
-            Section(header: Text("settings.section.appearance")) {
-                Picker(selection: $appearance.animation(.easeInOut(duration: 0.4))) {
-                    ForEach(Appearance.allCases) { theme in
-                        Text(theme.displayName).tag(theme)
-                    }
-                } label: {
-                    Text("settings.appearance.picker")
-                }
-                .pickerStyle(.segmented)
-            }
-
-            Section(header: Text("settings.section.language")) {
-                Picker(selection: $language) {
-                    ForEach(Language.allCases) { lang in
-                        Text(lang.displayName).tag(lang)
-                    }
-                } label: {
-                    Text("settings.language.picker")
-                }
-                .pickerStyle(.segmented)
-                Text("settings.language.caption").font(.caption).foregroundStyle(.secondary)
-            }
-            
-            Section(header: Text("settings.section.data")) {
-                Button(role: .destructive) {
-                    viewModel.deleteAllSessions()
-                } label: {
-                    Text("settings.data.delete_history")
-                }
-            }
-        }
-        .padding()
-        .frame(width: 600, height: 450)
-        .navigationTitle(Text("settings.title"))
-    }
-}
-
-
-// MARK: - UI Theme
 struct Theme {
     static func userBubbleGradient(for scheme: ColorScheme) -> LinearGradient {
         let colors: [Color] = scheme == .dark ? [.blue, .indigo] : [.accentColor]
@@ -173,16 +100,20 @@ struct Theme {
     
     static let iconColor = Color.secondary
     static let borderColor = Color.gray.opacity(0.2)
-    static let welcomeGradient = LinearGradient(colors: [Color.black.opacity(0.1), Color.clear], startPoint: .top, endPoint: .bottom)
+
+    static func font(style: Font.TextStyle, weight: Font.Weight = .regular) -> Font {
+        switch style {
+        case .largeTitle: return .system(size: 34, weight: .bold)
+        case .headline: return .system(size: 17, weight: .semibold)
+        case .body: return .system(size: 17, weight: weight)
+        case .caption: return .system(size: 12, weight: weight)
+        default: return .system(style)
+        }
+    }
 }
-
-
-// MARK: - Main Container (Modern Layout)
 
 struct ModernChatContainerView: View {
     @EnvironmentObject var viewModel: ChatViewModel
-    @AppStorage("appearance") private var appearance: Appearance = .system
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationSplitView {
@@ -194,28 +125,21 @@ struct ModernChatContainerView: View {
                 WelcomeView()
             }
         }
-        .onAppear {
-            viewModel.loadSessions()
-        }
-        .preferredColorScheme(appearance.colorScheme)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: colorScheme)
+        .onAppear(perform: viewModel.loadSessions)
     }
 }
 
-// MARK: - Sessions Sidebar
 struct SessionsSidebar: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.locale) private var locale
     @State private var searchText = ""
-    @State private var itemHovering: UUID?
 
     private var filteredSessions: [ChatSession] {
-        if searchText.isEmpty { return viewModel.sessions }
-        else { return viewModel.sessions.filter { $0.title.localizedCaseInsensitiveContains(searchText) } }
+        searchText.isEmpty ? viewModel.sessions : viewModel.sessions.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
     private var groupedSessions: [Date: [ChatSession]] {
-        Dictionary(grouping: filteredSessions) { session in Calendar.current.startOfDay(for: session.createdAt) }
+        Dictionary(grouping: filteredSessions) { Calendar.current.startOfDay(for: $0.createdAt) }
     }
 
     private var sortedGroupKeys: [Date] {
@@ -223,25 +147,33 @@ struct SessionsSidebar: View {
     }
 
     var body: some View {
-        List(selection: $viewModel.currentSessionID) {
-            ForEach(sortedGroupKeys, id: \.self) { date in
-                Section(header: Text(formattedSectionHeader(for: date))) {
-                    ForEach(groupedSessions[date]!) { session in
-                        Text(session.title)
-                            .padding(.vertical, 6).listRowSeparator(.hidden)
-                            .contentShape(Rectangle())
-                            .background(itemHovering == session.id ? Color.gray.opacity(0.2) : Color.clear)
-                            .cornerRadius(6)
-                            .onHover { isHovering in itemHovering = isHovering ? session.id : nil }
+        VStack {
+            List(selection: $viewModel.currentSessionID) {
+                ForEach(sortedGroupKeys, id: \.self) { date in
+                    Section(header: Text(formattedSectionHeader(for: date))) {
+                        ForEach(groupedSessions[date]!) { session in
+                            HStack(spacing: 12) {
+                                Image(systemName: "message.fill")
+                                    .foregroundColor(.secondary.opacity(0.8))
+                                Text(session.title)
+                                    .lineLimit(1)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 10)
+                            .listRowBackground(
+                                (viewModel.currentSessionID == session.id ? Color.accentColor.opacity(0.25) : Color.clear)
+                                .cornerRadius(8)
+                            )
                             .tag(session.id)
+                        }
+                        .onDelete { indexSet in deleteItems(at: indexSet, from: groupedSessions[date]!) }
                     }
-                    .onDelete { indexSet in deleteItems(at: indexSet, from: groupedSessions[date]!) }
                 }
             }
+            .searchable(text: $searchText, prompt: Text("sidebar.search.prompt"))
+            .safeAreaInset(edge: .bottom) { bottomBar }
         }
-        .searchable(text: $searchText, prompt: Text("sidebar.search.prompt"))
-        .safeAreaInset(edge: .bottom) { bottomBar }
-        .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+        .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         .background(.ultraThinMaterial)
     }
     
@@ -273,8 +205,6 @@ struct SessionsSidebar: View {
     }
 }
 
-
-// MARK: - Chat Detail View
 struct ChatDetailView: View {
     @EnvironmentObject var viewModel: ChatViewModel
     @Environment(\.colorScheme) private var colorScheme
@@ -300,13 +230,12 @@ struct ChatDetailView: View {
     private var chatScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(viewModel.messages) { msg in MessageBubble(message: msg).id(msg.id) }
                     if viewModel.isTyping { TypingIndicatorView().id("typing-indicator") }
                 }
                 .padding()
             }
-            .animation(.spring(), value: viewModel.messages)
             .onChange(of: viewModel.messages) { _ in if let last = viewModel.messages.last { withAnimation(.spring()) { proxy.scrollTo(last.id, anchor: .bottom) } } }
             .onChange(of: viewModel.isTyping) { _ in if viewModel.isTyping { withAnimation { proxy.scrollTo("typing-indicator", anchor: .bottom) } } }
         }
@@ -320,16 +249,21 @@ struct ChatDetailView: View {
                     .buttonStyle(.borderless).tint(Color.accentColor).padding(.bottom, 8).help("chat.tooltip.send_pdf")
                 Button { selectAudio() } label: { Image(systemName: "waveform.badge.plus").font(.title2) }
                     .buttonStyle(.borderless).tint(Color.accentColor).padding(.bottom, 8).help("chat.tooltip.send_audio")
+
                 TextField("chat.input.placeholder", text: $input, axis: .vertical)
                     .lineLimit(1...5).textFieldStyle(.plain).padding(10)
-                    .background(Theme.assistantBubbleColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Theme.borderColor, lineWidth: 1)
+                    )
                     .focused($isInputFocused).onSubmit(send)
+
                 Button(action: send) { Image(systemName: "arrow.up.circle.fill").font(.title) }
                     .buttonStyle(.borderless).tint(Color.accentColor)
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 : 1)
+                    .opacity(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.2 : 1)
                     .scaleEffect(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.8 : 1.0)
-                    .animation(.easeInOut(duration: 0.2), value: input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding().background(.bar)
         }
@@ -340,33 +274,56 @@ struct ChatDetailView: View {
     private func selectAudio() { let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType.audio]; panel.begin { resp in if resp == .OK, let url = panel.url { Task { await viewModel.handleAudio(url: url) } } } }
 }
 
-// MARK: - Welcome View
 struct WelcomeView: View {
     @EnvironmentObject var viewModel: ChatViewModel
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        ZStack {
-            Theme.welcomeGradient
-            VStack {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 80))
-                    .foregroundStyle(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("PrivateAI").font(.largeTitle.bold()).padding(.top, 10)
-                
-                if !viewModel.isApiKeyConfigured {
-                    ContentUnavailableView( "welcome.invalid_api.title", systemImage: "key.fill", description: Text("welcome.invalid_api.description") )
-                    Button("welcome.button.open_settings") { NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) }
-                } else {
-                    Text("welcome.prompt").font(.headline)
-                        .foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal)
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 90))
+                .foregroundStyle(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: .purple.opacity(0.3), radius: 15, y: 5)
+            
+            Text("welcome.title")
+                .font(Theme.font(style: .largeTitle))
+
+            Text("welcome.prompt")
+                .font(Theme.font(style: .headline))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 400)
+
+            if !viewModel.isApiKeyConfigured {
+                VStack(spacing: 8) {
+                    Label("welcome.invalid_api.title", systemImage: "key.fill")
+                        .font(Theme.font(style: .body, weight: .semibold))
+                    Text("welcome.invalid_api.description")
+                        .font(Theme.font(style: .caption))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("welcome.button.open_settings") {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top)
                 }
+                .padding()
+                .background(Color.yellow.opacity(colorScheme == .dark ? 0.3 : 0.2))
+                .cornerRadius(16)
+                .padding(.horizontal)
             }
+            
+            Spacer()
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.secondaryBackgroundColor(for: colorScheme).opacity(0.5))
     }
 }
 
-// MARK: - Typing Indicator View
 struct TypingIndicatorView: View {
     @State private var scales: [CGFloat] = [0.5, 0.5, 0.5]
     @Environment(\.colorScheme) private var colorScheme
@@ -391,71 +348,73 @@ struct TypingIndicatorView: View {
     }
 }
 
-// MARK: - MessageBubble
+struct BubbleStyle: ViewModifier {
+    let isUser: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .foregroundStyle(isUser ? .white : .primary)
+            .background(isUser ? AnyShapeStyle(Theme.userBubbleGradient(for: colorScheme)) : AnyShapeStyle(Theme.assistantBubbleColor(for: colorScheme)))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Theme.borderColor, lineWidth: 1)
+            )
+    }
+}
+
 struct MessageBubble: View {
     let message: ChatMessage
     private var isUser: Bool { message.role == .user }
     
-    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var ttsService: TextToSpeechService
-    
     @State private var isHoveringOnPlayButton = false
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {
             if !isUser {
-                Image(systemName: "sparkles.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(Theme.iconColor.opacity(0.8))
+                Image(systemName: "sparkles.circle.fill").font(.title).foregroundStyle(Theme.iconColor.opacity(0.8))
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Button(action: {
-                        ttsService.speak(text: message.text, messageID: message.id)
-                    }) {
-                        Image(systemName: ttsService.speakingMessageID == message.id ? "stop.circle.fill" : "speaker.wave.2.circle.fill")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(isHoveringOnPlayButton ? .accentColor : Theme.iconColor)
-                            .padding(10)
-                            .background(
-                                Circle()
-                                    .fill(isHoveringOnPlayButton ? Color.gray.opacity(0.25) : Color.clear)
-                            )
-                            .contentShape(Circle())
-                            .scaleEffect(isHoveringOnPlayButton ? 1.15 : 1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHoveringOnPlayButton)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        isHoveringOnPlayButton = hovering
-                    }
-                    .help(ttsService.speakingMessageID == message.id ? "Parar leitura" : "Ouvir resposta")
-                    .zIndex(1)
-
+                VStack(alignment: .leading, spacing: 8) {
                     textBubble
+                    ttsButton
                 }
+
             } else {
                 Spacer()
                 textBubble
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(Theme.iconColor.opacity(0.8))
+                Image(systemName: "person.crop.circle.fill").font(.title).foregroundStyle(Theme.iconColor.opacity(0.8))
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
     
     private var textBubble: some View {
         Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .foregroundStyle(isUser ? .white : .primary)
-            .background(isUser ? AnyShapeStyle(Theme.userBubbleGradient(for: colorScheme)) : AnyShapeStyle(Theme.assistantBubbleColor(for: colorScheme)))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.borderColor, lineWidth: 1))
+            .modifier(BubbleStyle(isUser: isUser))
             .frame(maxWidth: 450, alignment: isUser ? .trailing : .leading)
             .contextMenu { copyButton }
+    }
+    
+    @ViewBuilder private var ttsButton: some View {
+        Button(action: { ttsService.speak(text: message.text, messageID: message.id) }) {
+            Image(systemName: ttsService.speakingMessageID == message.id ? "stop.circle.fill" : "speaker.wave.2.circle.fill")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(isHoveringOnPlayButton ? .accentColor : Theme.iconColor)
+                .padding(6)
+                .background(Circle().fill(isHoveringOnPlayButton ? Color.gray.opacity(0.25) : Color.clear))
+                .contentShape(Circle())
+                .scaleEffect(isHoveringOnPlayButton ? 1.15 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHoveringOnPlayButton)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in isHoveringOnPlayButton = hovering }
+        .help(ttsService.speakingMessageID == message.id ? "Parar leitura" : "Ouvir resposta")
+        .zIndex(1)
     }
     
     @ViewBuilder private var copyButton: some View {
@@ -468,8 +427,153 @@ struct MessageBubble: View {
     }
 }
 
+struct SettingsView: View {
+    @AppStorage("customApiKey") private var customApiKey: String = ""
+    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
+    @AppStorage("appearance") private var appearance: Appearance = .system
+    @AppStorage("language") private var language: Language = .system
+    
+    @EnvironmentObject var viewModel: ChatViewModel
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private let models: [(id: String, displayName: String)] = [
+        ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+        ("gemini-2.5-pro", "Gemini 2.5 Pro")
+    ]
+    
+    var body: some View {
+        TabView {
+            generalSettingsTab
+                .tabItem {
+                    Label("settings.tab.general", systemImage: "gear")
+                }
+            
+            privacyAndDataTab
+                .tabItem {
+                    Label("settings.tab.privacy", systemImage: "shield.lefthalf.filled")
+                }
+        }
+        .padding()
+        .frame(minWidth: 500, maxWidth: 650, minHeight: 350, maxHeight: 500)
+    }
 
-// MARK: - Models
+    private var generalSettingsTab: some View {
+        Form {
+            Section(header: Text("settings.section.authentication")) {
+                SecureField("", text: $customApiKey, prompt: Text("settings.apikey.placeholder"))
+                    .textFieldStyle(.roundedBorder)
+                Text("settings.apikey.caption")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Section(header: Text("settings.section.aimodel")) {
+                Picker("settings.model.picker", selection: $modelID) {
+                    ForEach(models, id: \.id) { model in
+                        Text(model.displayName).tag(model.id)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            
+            Section(header: Text("settings.section.appearance")) {
+                Picker("settings.appearance.picker", selection: $appearance.animation(.easeInOut(duration: 0.4))) {
+                    ForEach(Appearance.allCases) { theme in
+                        Text(theme.displayName).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section(header: Text("settings.section.language")) {
+                Picker("settings.language.picker", selection: $language) {
+                    ForEach(Language.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("settings.language.caption").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var privacyAndDataTab: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(spacing: 15) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.green)
+                    
+                    VStack(alignment: .leading) {
+                        Text("settings.section.privacy")
+                            .font(.headline)
+                        Text("settings.privacy.caption")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Divider()
+                
+                if let url = URL(string: "https://ai.google/responsibility/privacy/") {
+                    HStack {
+                        Spacer()
+                        Link("settings.privacy.link", destination: url)
+                        Spacer()
+                    }
+                }
+            }
+            .padding()
+            .background(Theme.secondaryBackgroundColor(for: colorScheme))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Theme.borderColor, lineWidth: 1)
+            )
+            
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(spacing: 15) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.red)
+
+                    VStack(alignment: .leading) {
+                        Text("settings.section.data")
+                            .font(.headline)
+                        Text("settings.data.delete_caption")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Divider()
+                
+                HStack {
+                    Spacer()
+                    Button(role: .destructive) {
+                        viewModel.deleteAllSessions()
+                    } label: {
+                        Text("settings.data.delete_history")
+                    }
+                    Spacer()
+                }
+            }
+            .padding()
+            .background(Theme.secondaryBackgroundColor(for: colorScheme))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Theme.borderColor, lineWidth: 1)
+            )
+            
+            Spacer()
+        }
+        .padding()
+    }
+}
+
 struct ChatMessage: Identifiable, Hashable, Codable {
     enum Role: String, Codable { case user, assistant }
     let id: UUID
@@ -484,7 +588,6 @@ struct ChatSession: Identifiable, Codable, Hashable {
     var messages: [ChatMessage]
 }
 
-// MARK: - ViewModel
 @MainActor
 final class ChatViewModel: ObservableObject {
     @Published var sessions: [ChatSession] = [] { didSet { saveSessions() } }
@@ -492,7 +595,7 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var isTyping = false
     
     @AppStorage("customApiKey") private var customApiKey: String = ""
-    @AppStorage("modelID") private var modelID: String = "gemini-1.5-flash"
+    @AppStorage("modelID") private var modelID: String = "gemini-2.5-flash"
 
     private let gemini = GeminiService()
     private let recognizer = SpeechService()
@@ -561,7 +664,10 @@ final class ChatViewModel: ObservableObject {
     }
 
     func handleAudio(url: URL) async {
-        guard currentSessionID != nil else { return }
+        if currentSessionID == nil {
+            createNewSession()
+        }
+        
         let userMessage = String(format: NSLocalizedString("chat.audio_sent", comment: ""), url.lastPathComponent)
         updateMessages(with: userMessage, role: .user)
         do {
@@ -572,7 +678,10 @@ final class ChatViewModel: ObservableObject {
     }
 
     func handlePDF(url: URL) async {
-        guard currentSessionID != nil else { return }
+        if currentSessionID == nil {
+            createNewSession()
+        }
+
         let userMessage = String(format: NSLocalizedString("chat.pdf_sent", comment: ""), url.lastPathComponent)
         updateMessages(with: userMessage, role: .user)
         do {
@@ -587,144 +696,70 @@ final class ChatViewModel: ObservableObject {
     private func saveSessions() { SessionStore.shared.save(sessions) }
 }
 
-// MARK: - Text to Speech Service
 final class TextToSpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published private(set) var speakingMessageID: UUID?
-
     private let synthesizer = AVSpeechSynthesizer()
-
-    override init() {
-        super.init()
-        synthesizer.delegate = self
-    }
-
+    override init() { super.init(); synthesizer.delegate = self }
     func speak(text: String, messageID: UUID) {
-        if synthesizer.isSpeaking && messageID == self.speakingMessageID {
-            stop()
-            return
-        }
-
-        if synthesizer.isSpeaking {
-            stop()
-        }
-
+        if synthesizer.isSpeaking { stop() }
+        if messageID == self.speakingMessageID { self.speakingMessageID = nil; return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        utterance.pitchMultiplier = 1.0
-
         self.speakingMessageID = messageID
         synthesizer.speak(utterance)
     }
-
-    func stop() {
-        synthesizer.stopSpeaking(at: .immediate)
-        speakingMessageID = nil
-    }
-
-    // MARK: AVSpeechSynthesizerDelegate
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async {
-            self.speakingMessageID = nil
-        }
-    }
-    
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async {
-            self.speakingMessageID = nil
-        }
-    }
+    func stop() { synthesizer.stopSpeaking(at: .immediate) }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { DispatchQueue.main.async { self.speakingMessageID = nil } }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { DispatchQueue.main.async { self.speakingMessageID = nil } }
 }
 
-
-// MARK: - Speech Service
 struct SpeechService {
     func transcribeAudio(at url: URL) async throws -> String {
-        let recognizer = SFSpeechRecognizer(locale: Locale.current)
-        guard let recognizer = recognizer, recognizer.isAvailable else { throw NSError(domain: "Speech", code: -1, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer not available for the current locale."]) }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale.current), recognizer.isAvailable else { throw NSError(domain: "Speech", code: -1, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer not available for the current locale."]) }
         let request = SFSpeechURLRecognitionRequest(url: url)
         return try await withCheckedThrowingContinuation { cont in
             recognizer.recognitionTask(with: request) { result, error in
-                if let error = error { cont.resume(throwing: error)
-                } else if let result = result, result.isFinal { cont.resume(returning: result.bestTranscription.formattedString) }
+                if let error = error { cont.resume(throwing: error) }
+                else if let result = result, result.isFinal { cont.resume(returning: result.bestTranscription.formattedString) }
             }
         }
     }
 }
 
-// MARK: - PDF Service
 struct PDFService {
     func extractText(from url: URL) async throws -> String {
         guard let doc = PDFDocument(url: url) else { throw NSError(domain: "PDF", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not open PDF document."]) }
-        var fullText = ""
-        for i in 0..<doc.pageCount {
-            guard let page = doc.page(at: i), let text = page.string else { continue }; fullText += text + "\n"
-        }
-        return fullText
+        return (0..<doc.pageCount).compactMap { doc.page(at: $0)?.string }.joined(separator: "\n")
     }
 }
 
-// MARK: - Session Store
 struct SessionStore {
     static let shared = SessionStore()
     private let fileURL: URL
-
     private init() {
-        let fm = FileManager.default
-        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let folder = base.appendingPathComponent("PrivateAI", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         fileURL = folder.appendingPathComponent("sessions.json")
     }
-
-    func load() -> [ChatSession] {
-        guard let data = try? Data(contentsOf: fileURL) else { return [] }
-        return (try? JSONDecoder().decode([ChatSession].self, from: data)) ?? []
-    }
-
-    func save(_ sessions: [ChatSession]) {
-        DispatchQueue.global(qos: .background).async {
-            guard let data = try? JSONEncoder().encode(sessions) else { return }
-            try? data.write(to: fileURL, options: .atomic)
-        }
-    }
+    func load() -> [ChatSession] { (try? JSONDecoder().decode([ChatSession].self, from: Data(contentsOf: fileURL))) ?? [] }
+    func save(_ sessions: [ChatSession]) { DispatchQueue.global(qos: .background).async { guard let data = try? JSONEncoder().encode(sessions) else { return }; try? data.write(to: fileURL, options: .atomic) } }
 }
 
-// MARK: - Gemini Service
 actor GeminiService {
     private let session = URLSession(configuration: .ephemeral)
-
     struct Part: Codable { let text: String }
     struct Content: Codable { let role: String; let parts: [Part] }
     struct GenerationConfig: Codable { let temperature: Double; let topP: Double; let maxOutputTokens: Int }
     struct Candidate: Codable { let content: Content }
     struct ResponseBody: Codable { let candidates: [Candidate] }
-
     struct SystemInstruction: Codable { let parts: [Part] }
-
-    struct RequestBody: Codable {
-        let contents: [Content]
-        let generationConfig: GenerationConfig
-        let systemInstruction: SystemInstruction?
-
-        enum CodingKeys: String, CodingKey {
-            case contents, generationConfig
-            case systemInstruction = "system_instruction"
-        }
-    }
+    struct RequestBody: Codable { let contents: [Content]; let generationConfig: GenerationConfig; let systemInstruction: SystemInstruction?; enum CodingKeys: String, CodingKey { case contents, generationConfig; case systemInstruction = "system_instruction" } }
 
     func sendPrompt(history: [ChatMessage], apiKey: String, modelID: String) async throws -> String {
         let contents = history.map { Content(role: $0.role == .user ? "user" : "model", parts: [Part(text: $0.text)]) }
-
-        let instructionText = "Formate suas respostas usando Markdown. Use negrito, itálico e listas quando apropriado. Não use títulos ou cabeçalhos (iniciados com '#')."
-        let systemInstruction = SystemInstruction(parts: [Part(text: instructionText)])
-
-        let body = RequestBody(
-            contents: contents,
-            generationConfig: GenerationConfig(temperature: 0.7, topP: 0.95, maxOutputTokens: 4096),
-            systemInstruction: systemInstruction
-        )
-
+        let instruction = SystemInstruction(parts: [Part(text: "Formate suas respostas usando Markdown. Use negrito, itálico e listas quando apropriado. Não use títulos ou cabeçalhos (iniciados com '#').")])
+        let body = RequestBody(contents: contents, generationConfig: GenerationConfig(temperature: 0.7, topP: 0.95, maxOutputTokens: 4096), systemInstruction: instruction)
         let data = try await performRequest(with: body, apiKey: apiKey, modelID: modelID)
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard let part = decoded.candidates.first?.content.parts.first else { throw URLError(.cannotParseResponse) }
@@ -733,12 +768,8 @@ actor GeminiService {
 
     func summarize(history: [ChatMessage], apiKey: String, modelID: String) async throws -> String {
         let conversationText = history.prefix(2).map { "\($0.role.rawValue.capitalized): \($0.text)" }.joined(separator: "\n\n")
-        
-        let promptFormat = NSLocalizedString("gemini.title_prompt", comment: "Prompt for Gemini to generate a title")
-        let prompt = String(format: promptFormat, conversationText)
-        
-        let promptContent = Content(role: "user", parts: [Part(text: prompt)])
-        let body = RequestBody(contents: [promptContent], generationConfig: GenerationConfig(temperature: 0.2, topP: 0.95, maxOutputTokens: 20), systemInstruction: nil)
+        let prompt = String(format: NSLocalizedString("gemini.title_prompt", comment: "Prompt for Gemini to generate a title"), conversationText)
+        let body = RequestBody(contents: [Content(role: "user", parts: [Part(text: prompt)])], generationConfig: GenerationConfig(temperature: 0.2, topP: 0.95, maxOutputTokens: 20), systemInstruction: nil)
         let data = try await performRequest(with: body, apiKey: apiKey, modelID: modelID)
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard var summary = decoded.candidates.first?.content.parts.first?.text else { throw URLError(.cannotParseResponse) }
@@ -755,39 +786,36 @@ actor GeminiService {
         request.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "No error details."
-            let errorMessage = String(format: NSLocalizedString("error.server_response", comment: ""), errorBody)
-            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: errorMessage])
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: String(data: data, encoding: .utf8) ?? "No error details."])
         }
         return data
     }
 }
 
-// MARK: - URL Convenience
 extension URL {
     mutating func append(queryItems items: [URLQueryItem]) {
         guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else { return }
-        components.queryItems = (components.queryItems ?? []) + items
-        self = components.url ?? self
+        components.queryItems = (components.queryItems ?? []) + items; self = components.url ?? self
     }
 }
 
-// MARK: - Preview
-#Preview("PrivateAI") {
+#Preview("PrivateAI (Light)") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
         .environmentObject(TextToSpeechService())
         .environment(\.locale, .init(identifier: "pt_BR"))
+        .preferredColorScheme(.light)
 }
 
-#Preview("PrivateAI (English)") {
+#Preview("PrivateAI (Dark)") {
     ModernChatContainerView()
         .environmentObject(ChatViewModel())
         .environmentObject(TextToSpeechService())
-        .environment(\.locale, .init(identifier: "en"))
+        .environment(\.locale, .init(identifier: "pt_BR"))
+        .preferredColorScheme(.dark)
 }
 
-#Preview("Settings (English)") {
+#Preview("Settings") {
     SettingsView()
         .environmentObject(ChatViewModel())
         .environment(\.locale, .init(identifier: "en"))
